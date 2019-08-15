@@ -55,6 +55,23 @@ WPARAM mparam = 0;
 WPARAM pparam = 0;
 COLORREF _color = 0x000000;
 
+void loadBMP(HDC hdc, HDC hdcsrc, HBITMAP bmp, LPCWSTR file)
+{
+	SelectObject(hdcsrc, bmp);
+	BitBlt(hdc, 90, 90, 510, 510, hdcsrc, 0, 0, SRCCOPY);
+}
+
+void loadHRC(HDC hdc, LPCWSTR file)
+{
+	HDC hdcsrc;
+	HBITMAP bmp;
+	hdcsrc = CreateCompatibleDC(NULL);
+	bmp = (HBITMAP)LoadImageW(NULL, file, IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE);
+	loadBMP(hdc, hdcsrc, bmp, file);
+	DeleteObject(bmp);
+	DeleteDC(hdcsrc);
+}
+
 LRESULT CALLBACK w(HWND h, UINT i, WPARAM wp, LPARAM lp)
 {
 	RECT rect;
@@ -68,20 +85,13 @@ LRESULT CALLBACK w(HWND h, UINT i, WPARAM wp, LPARAM lp)
 	case WM_PAINT:
 	{
 		PAINTSTRUCT ps;
-
-		HDC hdc, hdcsrc;
-		HBITMAP bmp;
-
+		HDC hdc;
 		hdc = BeginPaint(h, &ps);
+		
 		if (mparam == 10) //load
 		{
-			LPCWSTR file = L"ellipse.bmp";
-			hdcsrc = CreateCompatibleDC(NULL);
-			bmp = (HBITMAP)LoadImageW(NULL, file, IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE);
-			SelectObject(hdcsrc, bmp);
-			BitBlt(hdc, 90, 90, 510, 510, hdcsrc, 0, 0, SRCCOPY);
-			DeleteObject(bmp);
-			DeleteDC(hdcsrc);
+			loadHRC(hdc, L"ellipse.bmp");
+			HDCToFile("ellipse_tmp.bmp", hdc, { 90,90,510,510 });
 			EndPaint(h, &ps);
 			mparam = 0;
 			return 0;
@@ -101,12 +111,16 @@ LRESULT CALLBACK w(HWND h, UINT i, WPARAM wp, LPARAM lp)
 		{
 		case 300:
 		{
+			loadHRC(hdc,L"ellipse_tmp.bmp");
 			Ellipse(hdc, 100, 100, 500, 500);
+			HDCToFile("ellipse_tmp.bmp", hdc, { 90,90,510,510 });
 			break;
 		}
 		case 301:
 		{
+			loadHRC(hdc, L"ellipse_tmp.bmp");
 			Ellipse(hdc, 100, 100, 500, 400);
+			HDCToFile("ellipse_tmp.bmp", hdc, { 90,90,510,510 });
 			break;
 		}
 		default:
@@ -115,8 +129,6 @@ LRESULT CALLBACK w(HWND h, UINT i, WPARAM wp, LPARAM lp)
 
 		if (mparam == 500)
 		{
-
-			std::ifstream ifn;
 			cout << "Saving.. " << endl;
 			HDCToFile("ellipse.bmp", hdc, { 90,90,510,510 });
 			cout << "Saved" << endl;
