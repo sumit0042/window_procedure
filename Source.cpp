@@ -27,7 +27,6 @@ bool HDCToFile(const char* FilePath, HDC Context, RECT Area, uint16_t BitsPerPix
 	Header.bfType = 0x4D42;
 	Header.bfOffBits = sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER);
 
-
 	char* Pixels = NULL;
 	HDC MemDC = CreateCompatibleDC(Context);
 	HBITMAP Section = CreateDIBSection(Context, &Info, DIB_RGB_COLORS, (void**)& Pixels, 0, 0);
@@ -49,6 +48,15 @@ bool HDCToFile(const char* FilePath, HDC Context, RECT Area, uint16_t BitsPerPix
 	DeleteObject(Section);
 	return false;
 }
+
+/*
+0 : waiting for left click
+1 : left clicked, 1st pt
+2 : left clicked. 2nd pt
+3 : left clicked, 3rd pt - DRAW
+*/
+int drawstate = 0;
+int xx1 = 0, yy1 = 0, xx2 = 0, yy2 = 0, xx3 = 0, yy3 = 0;
 
 WPARAM wparam = 0;
 WPARAM mparam = 0;
@@ -72,84 +80,83 @@ void loadHRC(HDC hdc, LPCWSTR file)
 	DeleteDC(hdcsrc);
 }
 
+int paintwind(HWND h)
+{
+	PAINTSTRUCT ps;
+	HDC hdc;
+	hdc = BeginPaint(h, &ps);
+
+	if (mparam == 10) //load
+	{
+		loadHRC(hdc, L"ellipse.bmp");
+		HDCToFile("ellipse_tmp.bmp", hdc, { 90,90,510,510 });
+		EndPaint(h, &ps);
+		mparam = 0;
+		return 0;
+	}
+
+	if (mparam == 100)//clear
+	{
+		EndPaint(h, &ps);
+		pparam = 0;
+		mparam = 0;
+		return 0;
+	}
+
+	HPEN hpen = CreatePen(PS_DASHDOTDOT, 20, _color); //BGR
+	SelectObject(hdc, hpen);
+	switch (pparam)
+	{
+	case 300:
+	{
+		loadHRC(hdc, L"ellipse_tmp.bmp");
+		Ellipse(hdc, 100, 100, 500, 500);
+		HDCToFile("ellipse_tmp.bmp", hdc, { 90,90,510,510 });
+		break;
+	}
+	case 301:
+	{
+		loadHRC(hdc, L"ellipse_tmp.bmp");
+		Ellipse(hdc, 100, 100, 500, 400);
+		HDCToFile("ellipse_tmp.bmp", hdc, { 90,90,510,510 });
+		break;
+	}
+	default:
+		break;
+	}
+
+	if (mparam == 500)
+	{
+		cout << "Saving.. " << endl;
+		HDCToFile("ellipse.bmp", hdc, { 90,90,510,510 });
+		cout << "Saved" << endl;
+		mparam = 0;
+	}
+	EndPaint(h, &ps);
+	return 0;
+
+}
+
 LRESULT CALLBACK w(HWND h, UINT i, WPARAM wp, LPARAM lp)
 {
-	RECT rect;
-	rect.left = 100;
-	rect.top = 500;
-	rect.right = 500;
-	rect.bottom = 100;
 	switch (i)
 	{
 
 	case WM_PAINT:
 	{
-		PAINTSTRUCT ps;
-		HDC hdc;
-		hdc = BeginPaint(h, &ps);
-		
-		if (mparam == 10) //load
-		{
-			loadHRC(hdc, L"ellipse.bmp");
-			HDCToFile("ellipse_tmp.bmp", hdc, { 90,90,510,510 });
-			EndPaint(h, &ps);
-			mparam = 0;
-			return 0;
-		}
-
-		if (mparam == 100)//clear
-		{
-			EndPaint(h, &ps);
-			pparam = 0;
-			mparam = 0;
-			return 0;
-		}
-
-		HPEN hpen = CreatePen(PS_DASHDOTDOT, 20, _color); //BGR
-		SelectObject(hdc, hpen);
-		switch (pparam)
-		{
-		case 300:
-		{
-			loadHRC(hdc,L"ellipse_tmp.bmp");
-			Ellipse(hdc, 100, 100, 500, 500);
-			HDCToFile("ellipse_tmp.bmp", hdc, { 90,90,510,510 });
-			break;
-		}
-		case 301:
-		{
-			loadHRC(hdc, L"ellipse_tmp.bmp");
-			Ellipse(hdc, 100, 100, 500, 400);
-			HDCToFile("ellipse_tmp.bmp", hdc, { 90,90,510,510 });
-			break;
-		}
-		default:
-			break;
-		}
-
-		if (mparam == 500)
-		{
-			cout << "Saving.. " << endl;
-			HDCToFile("ellipse.bmp", hdc, { 90,90,510,510 });
-			cout << "Saved" << endl;
-			mparam = 0;
-		}
-		EndPaint(h, &ps);
-		return 0;
-
+		paintwind(h);
 	}
 
 	case WM_LBUTTONUP:
 	{
-
+		int xPos = GET_X_LPARAM(lp);
+		int yPos = GET_Y_LPARAM(lp);
+		cout << "released at : ";
+		cout << xPos << " " << yPos << endl;
 	}
 	case WM_LBUTTONDOWN:
 	{
-
-		int xPos = GET_X_LPARAM(lp);
-		int yPos = GET_Y_LPARAM(lp);
-		cout << "From WM_LBUTTONDOWN, mouse pressed at : ";
-		cout << xPos << " " << yPos << endl;
+		//break;
 	}
 
 	case WM_COMMAND:
@@ -213,7 +220,7 @@ LRESULT CALLBACK w(HWND h, UINT i, WPARAM wp, LPARAM lp)
 		default:
 			break;
 		}
-		cout << "From WM_COMMAND" << h << " " << i << " " << wp << " " << lp << endl;
+		//cout << "From WM_COMMAND" << h << " " << i << " " << wp << " " << lp << endl;
 	}
 
 	break;
@@ -255,7 +262,7 @@ int main()
 	while (GetMessage(&msg, NULL, NULL, NULL))
 	{
 		TranslateMessage(&msg);
-		std::cout << "From while msg " << msg.message << std::endl;
+		//std::cout << "From while msg " << msg.message << std::endl;
 		DispatchMessage(&msg);
 	}
 
