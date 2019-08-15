@@ -50,8 +50,10 @@ bool HDCToFile(const char* FilePath, HDC Context, RECT Area, uint16_t BitsPerPix
 	return false;
 }
 
-WPARAM wparam;
-COLORREF _color;
+WPARAM wparam = 0;
+WPARAM mparam = 0;
+WPARAM pparam = 0;
+COLORREF _color = 0x000000;
 
 LRESULT CALLBACK w(HWND h, UINT i, WPARAM wp, LPARAM lp)
 {
@@ -68,10 +70,10 @@ LRESULT CALLBACK w(HWND h, UINT i, WPARAM wp, LPARAM lp)
 		PAINTSTRUCT ps;
 
 		HDC hdc, hdcsrc;
-		HBITMAP bmp, hold;
+		HBITMAP bmp;
 
 		hdc = BeginPaint(h, &ps);
-		if (wparam == 10)
+		if (mparam == 10) //load
 		{
 			LPCWSTR file = L"ellipse.bmp";
 			hdcsrc = CreateCompatibleDC(NULL);
@@ -81,31 +83,63 @@ LRESULT CALLBACK w(HWND h, UINT i, WPARAM wp, LPARAM lp)
 			DeleteObject(bmp);
 			DeleteDC(hdcsrc);
 			EndPaint(h, &ps);
+			mparam = 0;
 			return 0;
 		}
 
-		if (wparam == 100)
+		if (mparam == 100)//clear
 		{
 			EndPaint(h, &ps);
+			mparam = 0;
 			return 0;
 		}
-		else {
 
-			HPEN hpen = CreatePen(PS_DASHDOTDOT, 20, _color); //BGR
+		HPEN hpen = CreatePen(PS_DASHDOTDOT, 20, _color); //BGR
+		
 
 			SelectObject(hdc, hpen);
-			Ellipse(hdc, 100, 100, 500, 500);
-			if (wparam == 500)
+			switch (pparam)
 			{
-
-				std::ifstream ifn;
-				cout << "Saving.. " << endl;
-				HDCToFile("ellipse.bmp", hdc, { 90,90,510,510 });
-				cout << "Saved" << endl;
+			case 300:
+			{
+				Ellipse(hdc, 100, 100, 500, 500);
+				break;
 			}
-			DeleteObject(hpen);
-			EndPaint(h, &ps);
+			case 301:
+			{
+				Ellipse(hdc, 100, 100, 500, 400);
+				break;
+			}
+			case 302:
+			{
+				DrawFocusRect(hdc, new RECT{100,100,500,500});
+				break;
+			}
+			case 303:
+			{
+				DrawFocusRect(hdc, new RECT{ 100,100,500,400});
+				break;
+			}
+			default:
+				break;
+			}
+
+		if (mparam == 500)
+		{
+
+			std::ifstream ifn;
+			cout << "Saving.. " << endl;
+			HDCToFile("ellipse.bmp", hdc, { 90,90,510,510 });
+			cout << "Saved" << endl;
+			mparam = 0;
 		}
+		EndPaint(h, &ps);
+		return 0;
+
+	}
+
+	case WM_LBUTTONUP:
+	{
 
 	}
 	case WM_LBUTTONDOWN:
@@ -119,47 +153,76 @@ LRESULT CALLBACK w(HWND h, UINT i, WPARAM wp, LPARAM lp)
 
 	case WM_COMMAND:
 	{
-		wparam = wp;
 		switch (wp)
 		{
+		case 300:
+		{
+			//circ
+			pparam = wp;
+			InvalidateRect(h, NULL, true);
+			break;
+		}
+		case 301:
+		{
+			pparam = wp;
+			//elli
+			InvalidateRect(h, NULL, true);
+			break;
+		}
+		case 302:
+		{
+			pparam = wp;
+			//sq
+			UpdateWindow(h);
+			RedrawWindow(h, NULL, NULL, RDW_INVALIDATE);
+			break;
+		}
+		case 303:
+		{
+			pparam = wp;
+			//rec
+			InvalidateRect(h, NULL, true);
+			break;
+		}
 		case 200:
 		{
 			_color = 0x000000;
-			InvalidateRect(h, NULL, true);
 			break;
 		}
 		case 201:
 		{
 			_color = 0x0000FF;
-			InvalidateRect(h, NULL, true);
 			break;
 		}
 		case 202:
 		{
 			_color = 0x00FF00;
-			UpdateWindow(h);
-			RedrawWindow(h, NULL, NULL, RDW_INVALIDATE);
+			//UpdateWindow(h);
+			//RedrawWindow(h, NULL, NULL, RDW_INVALIDATE);
 			break;
 		}
 		case 203:
 		{
 			_color = 0xFF0000;
+			break;
+		}
+		case 500://save
+		{
+			mparam = 500;
 			InvalidateRect(h, NULL, true);
 			break;
 		}
-		case 500:
+		case 100://clear
 		{
-			wparam = wp;
+			mparam = 100;
 			InvalidateRect(h, NULL, true);
+			break;
 		}
-		case 100:
+		case 10://load
 		{
-			wparam = wp;
+			mparam = 10;
 			InvalidateRect(h, NULL, true);
-		}
-		case 10:
-		{
-			InvalidateRect(h, NULL, true);
+			break;
 		}
 		default:
 			break;
@@ -197,6 +260,11 @@ int main()
 	HWND h_col_r = CreateWindowExW(0L, L"button", L"Red  ", WS_VISIBLE | WS_CHILDWINDOW, 900, 260, 50, 50, h, (HMENU)201, NULL, NULL);
 	HWND h_col_g = CreateWindowExW(0L, L"button", L"Green", WS_VISIBLE | WS_CHILDWINDOW, 900, 320, 50, 50, h, (HMENU)202, NULL, NULL);
 	HWND h_col_b = CreateWindowExW(0L, L"button", L"Blue ", WS_VISIBLE | WS_CHILDWINDOW, 900, 380, 50, 50, h, (HMENU)203, NULL, NULL);
+
+	HWND h_col_cl = CreateWindowExW(0L, L"button", L"Circle ", WS_VISIBLE | WS_CHILDWINDOW, 800, 200, 50, 50, h, (HMENU)300, NULL, NULL);
+	HWND h_col_el = CreateWindowExW(0L, L"button", L"Ellipse", WS_VISIBLE | WS_CHILDWINDOW, 800, 260, 50, 50, h, (HMENU)301, NULL, NULL);
+	HWND h_col_sq = CreateWindowExW(0L, L"button", L"Square ", WS_VISIBLE | WS_CHILDWINDOW, 800, 320, 50, 50, h, (HMENU)302, NULL, NULL);
+	HWND h_col_rc = CreateWindowExW(0L, L"button", L"Rect   ", WS_VISIBLE | WS_CHILDWINDOW, 800, 380, 50, 50, h, (HMENU)303, NULL, NULL);
 	//cout << "h=" << h << endl;
 
 
