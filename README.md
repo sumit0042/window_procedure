@@ -1,4 +1,4 @@
-# window_procedure
+# Windows Paint Application
 
 Simple Paint Application for Windows.
 Loads and Saves BitMap images
